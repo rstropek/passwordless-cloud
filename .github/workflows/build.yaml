@@ -1,0 +1,51 @@
+name: 'Build Passwordless Cloud'
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      dotnet-version: '6.0.x'
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+    - name: 'Cancel previous workflow in same branch'
+      uses: styfle/cancel-workflow-action@0.4.0
+      with:
+        access_token: ${{ github.token }}
+
+    - name: 'Checkout'
+      uses: actions/checkout@v3
+
+    - name: 'Setup .NET SDK ${{ env.dotnet-version }}'
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: ${{ env.dotnet-version }}
+
+    - name: 'Azure Login'
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: 'dotnet build and publish'
+      run: |
+        dotnet restore
+        dotnet build --configuration Release
+        dotnet publish -c Release -o 'out'
+
+    - name: 'Azure webapp deploy'
+      uses: azure/webapps-deploy@v2
+      with: 
+        app-name: 'passwordless-cloud'
+        package: 'out'
